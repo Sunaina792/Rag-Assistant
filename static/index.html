@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DocuMind AI 🧠</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--surface3:#2a2f47;
+  --border:#2e3250;--accent:#6366f1;--accent-h:#818cf8;--accent-dim:rgba(99,102,241,.15);
+  --user-bg:#6366f1;--bot-bg:#22263a;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--cyan:#06b6d4;--purple:#a855f7;
+  --r:14px;--sidebar:300px;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text)}
+
+/* ── Layout ── */
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:var(--sidebar);min-width:var(--sidebar);
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:20px 14px;gap:18px;overflow-y:auto;
+}
+.logo{display:flex;align-items:center;gap:10px;font-size:1.2rem;font-weight:800;color:var(--accent-h)}
+.logo-icon{font-size:1.8rem}
+.section-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+.api-badge{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;font-size:.8rem;font-weight:600}
+.api-badge.ok{background:rgba(34,197,94,.1);color:var(--green)}
+.api-badge.err{background:rgba(239,68,68,.1);color:var(--red)}
+
+/* dropzone */
+.dropzone{
+  border:2px dashed var(--border);border-radius:var(--r);
+  padding:18px;text-align:center;cursor:pointer;
+  transition:border-color .2s,background .2s;font-size:.82rem;color:var(--muted);
+  position:relative;
+}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-dim);color:var(--text)}
+.dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:1.8rem;margin-bottom:4px}
+
+/* progress */
+.prog-wrap{display:none;margin-top:8px}
+.prog-wrap.on{display:block}
+.prog-track{height:5px;background:var(--border);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;width:0%;background:var(--accent);border-radius:99px;transition:width .3s}
+.prog-label{font-size:.72rem;color:var(--muted);margin-top:4px}
+
+/* file list */
+.file-list{display:flex;flex-direction:column;gap:5px}
+.file-item{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border-radius:8px;padding:7px 10px;font-size:.78rem;
+}
+.fi-icon{font-size:.95rem;flex-shrink:0}
+.fi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.fi-count{font-size:.68rem;color:var(--muted);background:var(--surface3);padding:2px 7px;border-radius:99px}
+
+/* buttons */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  border:none;border-radius:10px;padding:9px 12px;
+  font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent-h);background:var(--accent-dim)}
+.btn-danger{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+
+.sidebar-foot{margin-top:auto;font-size:.7rem;color:var(--muted);text-align:center;line-height:1.7}
+
+/* ── Main area ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* topbar */
+.topbar{
+  padding:14px 22px;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.topbar-left h2{font-size:1rem;font-weight:700}
+.topbar-left p{font-size:.75rem;color:var(--muted);margin-top:2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px;vertical-align:middle}
+.dot.ready{background:var(--green);box-shadow:0 0 6px var(--green)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;padding:0 22px;background:var(--surface);border-bottom:1px solid var(--border)}
+.tab{
+  padding:10px 16px;font-size:.82rem;font-weight:600;cursor:pointer;
+  border-bottom:2px solid transparent;color:var(--muted);transition:all .15s;white-space:nowrap;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent-h);border-bottom-color:var(--accent)}
+
+/* panels */
+.panel{flex:1;display:none;overflow:hidden}
+.panel.active{display:flex;flex-direction:column}
+
+/* ── CHAT PANEL ── */
+.messages{flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:10px;color:var(--muted);text-align:center;
+}
+.empty-state .ei{font-size:3rem;opacity:.35}
+.empty-state h3{font-size:1rem;color:var(--text);opacity:.5}
+.empty-state p{font-size:.82rem;max-width:300px;line-height:1.6}
+
+/* bubbles */
+.brow{display:flex;align-items:flex-end;gap:9px}
+.brow.user{flex-direction:row-reverse}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.avatar.user{background:var(--user-bg)}
+.avatar.bot{background:var(--surface2);border:1px solid var(--border)}
+.bwrap{max-width:70%}
+.bubble{
+  padding:11px 15px;border-radius:var(--r);font-size:.88rem;line-height:1.65;
+}
+.bubble.user{background:var(--user-bg);color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
+.bubble.bot{background:var(--bot-bg);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px}
+.bubble ul, .bubble ol { margin: 6px 0 6px 18px; padding-left: 0; }
+.bubble li { margin-bottom: 4px; }
+.bubble strong { color: #f8fafc; font-weight: 700; }
+.bubble code { background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; font-size: 0.85em; }
+.src-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.src-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  background:rgba(99,102,241,.12);color:var(--accent-h);
+  border:1px solid rgba(99,102,241,.3);border-radius:20px;
+  padding:2px 9px;font-size:.7rem;font-weight:600;
+}
+.model-tag{font-size:.68rem;color:var(--muted);margin-top:5px}
+
+/* typing */
+.typing-row{display:flex;align-items:flex-end;gap:9px}
+.typing-bubble{
+  display:flex;align-items:center;gap:5px;
+  padding:12px 15px;background:var(--bot-bg);border:1px solid var(--border);
+  border-radius:var(--r);border-bottom-left-radius:4px;
+}
+.typing-bubble span{
+  width:7px;height:7px;border-radius:50%;background:var(--muted);
+  animation:bounce 1.2s infinite ease-in-out;display:inline-block;
+}
+.typing-bubble span:nth-child(2){animation-delay:.2s}
+.typing-bubble span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+
+/* input bar */
+.input-bar{
+  border-top:1px solid var(--border);padding:14px 22px;
+  background:var(--surface);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;
+}
+.input-wrap{
+  flex:1;display:flex;align-items:flex-end;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 14px;transition:border-color .2s;
+}
+.input-wrap:focus-within{border-color:var(--accent)}
+#question{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:var(--font);font-size:.88rem;color:var(--text);resize:none;max-height:120px;line-height:1.5;
+}
+#question::placeholder{color:var(--muted)}
+.send-btn{
+  width:40px;height:40px;border-radius:11px;background:var(--accent);border:none;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+  font-size:1rem;transition:background .15s,transform .1s;
+}
+.send-btn:hover{background:var(--accent-h)}
+.send-btn:active{transform:scale(.92)}
+.send-btn:disabled{background:var(--border);cursor:not-allowed}
+
+/* ── PIPELINE PANEL ── */
+.pipeline-panel{flex:1;overflow-y:auto;padding:24px 22px;display:flex;flex-direction:column;gap:24px}
+
+/* static architecture diagram */
+.arch-title{font-size:.85rem;font-weight:700;color:var(--muted2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
+
+.arch-flow{display:flex;flex-direction:column;gap:0}
+.arch-section{margin-bottom:20px}
+.arch-section-label{
+  font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:10px;padding-left:4px;
+}
+.arch-row{display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.arch-node{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px;min-width:100px;flex-shrink:0;
+  transition:border-color .3s,background .3s;cursor:default;position:relative;
+}
+.arch-node.lit{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 16px rgba(99,102,241,.3)}
+.arch-node.upload-lit{border-color:var(--green);background:rgba(34,197,94,.1);box-shadow:0 0 16px rgba(34,197,94,.3)}
+.arch-node .n-icon{font-size:1.4rem}
+.arch-node .n-label{font-size:.72rem;font-weight:600;color:var(--muted2);text-align:center;line-height:1.3}
+.arch-node .n-sub{font-size:.62rem;color:var(--muted);text-align:center}
+.arch-arrow{
+  flex-shrink:0;display:flex;align-items:center;padding:0 4px;
+  color:var(--muted);font-size:1.1rem;
+}
+
+/* live pipeline steps */
+.live-title{font-size:.85rem;font-weight:700;color:var(--muted2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.live-empty{font-size:.82rem;color:var(--muted);padding:16px;background:var(--surface2);border-radius:10px;text-align:center}
+.step-list{display:flex;flex-direction:column;gap:8px}
+.step-card{
+  display:flex;align-items:center;gap:12px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.step-icon{font-size:1.3rem;flex-shrink:0}
+.step-info{flex:1}
+.step-name{font-size:.85rem;font-weight:700;color:var(--text)}
+.step-detail{font-size:.75rem;color:var(--muted);margin-top:2px}
+.step-ms{font-size:.72rem;color:var(--cyan);font-weight:700;flex-shrink:0}
+
+/* chunk inspector */
+.chunk-title{font-size:.85rem;font-weight:700;color:var(--muted2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.chunk-empty{font-size:.82rem;color:var(--muted);padding:16px;background:var(--surface2);border-radius:10px;text-align:center}
+.chunk-grid{display:flex;flex-direction:column;gap:8px}
+.chunk-card{
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  animation:slideIn .3s ease;
+}
+.chunk-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.chunk-src{font-size:.72rem;font-weight:600;color:var(--accent-h)}
+.chunk-score{
+  font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;
+  background:var(--surface3);color:var(--cyan);
+}
+.chunk-text{font-size:.78rem;color:var(--muted2);line-height:1.6}
+
+/* ── toast ── */
+#toast{
+  position:fixed;bottom:22px;right:22px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  padding:11px 16px;border-radius:11px;font-size:.82rem;
+  display:none;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:280px;
+}
+#toast.show{display:block;animation:fadeUp .2s ease}
+#toast.err{border-color:rgba(239,68,68,.5);color:var(--red)}
+#toast.ok{border-color:rgba(34,197,94,.5);color:var(--green)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="logo"><span class="logo-icon">🧠</span>DocuMind AI</div>
+
+  <div>
+    <div class="section-label">API Status</div>
+    <div class="api-badge ok" id="apiBadge">✅ Server running</div>
+  </div>
+
+  <div>
+    <div class="section-label">Upload Documents</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple accept=".pdf,.txt"/>
+      <div class="dz-icon">📂</div>
+      <div>Drop PDF or TXT here</div>
+      <div style="font-size:.72rem;margin-top:3px">or click to browse</div>
+    </div>
+    <div class="prog-wrap" id="progWrap">
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-label" id="progLabel">Uploading…</div>
+    </div>
+  </div>
+
+  <div id="fileSec" style="display:none">
+    <div class="section-label">Indexed Files</div>
+    <div class="file-list" id="fileList"></div>
+  </div>
+
+  <div>
+    <div class="section-label">Actions</div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="clearChat()">🗑️ Clear Chat</button>
+      <button class="btn btn-danger"  onclick="resetAll()">🔄 Reset All</button>
+    </div>
+  </div>
+
+  <div class="sidebar-foot">Built with FastAPI · BM25 · Groq<br>Python 3.14 compatible ✓</div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+  <!-- topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2>DocuMind AI Chat</h2>
+      <p><span class="dot" id="statusDot"></span><span id="statusText">No documents loaded</span></p>
+    </div>
+  </div>
+
+  <!-- tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('chat',this)">💬 Chat</div>
+    <div class="tab" onclick="switchTab('pipeline',this)">🔬 Pipeline Visualizer</div>
+  </div>
+
+  <!-- ── CHAT PANEL ── -->
+  <div class="panel active" id="panel-chat">
+    <div class="messages" id="messages">
+      <div class="empty-state" id="emptyState">
+        <div class="ei">💬</div>
+        <h3>No conversation yet</h3>
+        <p>Upload PDF or TXT documents in the sidebar, then ask any question about their content.</p>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="question" rows="1"
+          placeholder="Ask a question about your documents… (Enter to send)"
+          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled title="Send">➤</button>
+    </div>
+  </div>
+
+  <!-- ── PIPELINE PANEL ── -->
+  <div class="panel" id="panel-pipeline">
+    <div class="pipeline-panel">
+
+      <!-- Architecture diagram -->
+      <div>
+        <div class="arch-title">📐 RAG Architecture</div>
+
+        <div class="arch-section">
+          <div class="arch-section-label">📥 Indexing Flow (runs on upload)</div>
+          <div class="arch-row">
+            <div class="arch-node" id="node-upload">
+              <span class="n-icon">📄</span>
+              <span class="n-label">Document<br>Upload</span>
+              <span class="n-sub">PDF / TXT</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-extract">
+              <span class="n-icon">🔍</span>
+              <span class="n-label">Text<br>Extraction</span>
+              <span class="n-sub">pypdf</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-chunk">
+              <span class="n-icon">✂️</span>
+              <span class="n-label">Chunking</span>
+              <span class="n-sub">800 / 200 overlap</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-index">
+              <span class="n-icon">📊</span>
+              <span class="n-label">Vector<br>Store</span>
+              <span class="n-sub">HF Embeddings</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-section">
+          <div class="arch-section-label">💬 Query Flow (runs on each question)</div>
+          <div class="arch-row">
+            <div class="arch-node" id="node-query">
+              <span class="n-icon">💬</span>
+              <span class="n-label">User<br>Query</span>
+              <span class="n-sub">Natural language</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-bm25">
+              <span class="n-icon">🎯</span>
+              <span class="n-label">Semantic<br>Search</span>
+              <span class="n-sub" id="node-retrieval-mode">Cosine Sim</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-context">
+              <span class="n-icon">📋</span>
+              <span class="n-label">Context<br>Assembly</span>
+              <span class="n-sub">Grounded prompt</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-llm">
+              <span class="n-icon">🤖</span>
+              <span class="n-label">Groq<br>LLM</span>
+              <span class="n-sub" id="node-llm-model">Auto-select</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node" id="node-answer">
+              <span class="n-icon">✅</span>
+              <span class="n-label">Answer<br>+ Sources</span>
+              <span class="n-sub">Grounded only</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live pipeline steps -->
+      <div>
+        <div class="live-title">⚡ Last Query – Live Pipeline Steps</div>
+        <div id="liveSteps">
+          <div class="live-empty">Ask a question in the Chat tab to see live pipeline timing here.</div>
+        </div>
+      </div>
+
+      <!-- Chunk inspector -->
+      <div>
+        <div class="chunk-title">🔎 Retrieved Chunks Inspector</div>
+        <div id="chunkGrid">
+          <div class="chunk-empty">Retrieved chunks will appear here after your first question.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let isReady   = false;
+let isWaiting = false;
+
+/* ══════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  fetchStatus();
+  setInterval(fetchStatus, 8000);
+});
+
+/* ══════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════ */
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+/* ══════════════════════════════════════════════
+   STATUS
+══════════════════════════════════════════════ */
+async function fetchStatus() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    applyStatus(d);
+  } catch(_) {}
+}
+
+function applyStatus(d) {
+  isReady = d.ready;
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  const btn  = document.getElementById('sendBtn');
+
+  if (isReady) {
+    dot.classList.add('ready');
+    text.textContent = `${d.indexed_files.length} file(s) · ${d.total_chunks} chunks indexed`;
+  } else {
+    dot.classList.remove('ready');
+    text.textContent = 'No documents loaded';
+  }
+  btn.disabled = !isReady || isWaiting;
+
+  // Sidebar file list
+  const sec  = document.getElementById('fileSec');
+  const list = document.getElementById('fileList');
+  if (d.indexed_files.length > 0) {
+    sec.style.display = 'block';
+    list.innerHTML = d.indexed_files.map(f => {
+      const count = (d.file_chunks && d.file_chunks[f]) ? d.file_chunks[f] : '?';
+      const icon  = f.endsWith('.pdf') ? '📄' : '📝';
+      return `<div class="file-item">
+        <span class="fi-icon">${icon}</span>
+        <span class="fi-name" title="${f}">${f}</span>
+        <span class="fi-count">${count} chunks</span>
+      </div>`;
+    }).join('');
+  } else {
+    sec.style.display = 'none';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   UPLOAD
+══════════════════════════════════════════════ */
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('fileInput');
+
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', ()  => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); doUpload(e.dataTransfer.files); });
+fi.addEventListener('change', () => doUpload(fi.files));
+
+async function doUpload(files) {
+  if (!files || !files.length) return;
+
+  // Animate upload nodes
+  animateNodes(['node-upload','node-extract','node-chunk','node-index'], 'upload-lit', 600);
+
+  const wrap  = document.getElementById('progWrap');
+  const fill  = document.getElementById('progFill');
+  const label = document.getElementById('progLabel');
+  wrap.classList.add('on');
+  fill.style.width = '15%';
+  label.textContent = 'Uploading…';
+
+  const form = new FormData();
+  for (const f of files) form.append('files', f);
+
+  try {
+    fill.style.width = '45%';
+    const r = await fetch('/upload', { method:'POST', body:form });
+    fill.style.width = '85%';
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Upload failed');
+    fill.style.width = '100%';
+    label.textContent = d.message;
+    await fetchStatus();
+    showToast(`✅ ${d.message} · ${d.new_chunks} new chunks`, 'ok');
+  } catch(e) {
+    label.textContent = 'Error: ' + e.message;
+    showToast('❌ ' + e.message, 'err');
+  } finally {
+    setTimeout(() => { wrap.classList.remove('on'); fill.style.width='0%'; }, 2000);
+    fi.value = '';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════════ */
+async function sendMessage() {
+  const ta = document.getElementById('question');
+  const q  = ta.value.trim();
+  if (!q || isWaiting) return;
+
+  hideEmpty();
+  appendBubble('user', q);
+  ta.value = ''; ta.style.height = 'auto';
+
+  const typId = appendTyping();
+  setWaiting(true);
+
+  // Animate query flow nodes
+  animateNodes(['node-query','node-bm25','node-context','node-llm','node-answer'], 'lit', 500);
+
+  try {
+    const r = await fetch('/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q }),
+    });
+    const d = await r.json();
+    removeTyping(typId);
+    if (!r.ok) throw new Error(d.detail || 'Request failed');
+
+    appendBubble('bot', d.answer, d.sources, d.model);
+    updatePipeline(d.pipeline, d.chunks, d.model, d.mode);
+  } catch(e) {
+    removeTyping(typId);
+    appendBubble('bot', '⚠️ ' + e.message);
+  } finally {
+    setWaiting(false);
+  }
+}
+
+function setWaiting(v) {
+  isWaiting = v;
+  document.getElementById('sendBtn').disabled = v || !isReady;
+}
+
+/* ══════════════════════════════════════════════
+   BUBBLE RENDERING
+══════════════════════════════════════════════ */
+function hideEmpty() {
+  const es = document.getElementById('emptyState');
+  if (es) es.style.display = 'none';
+}
+
+function appendBubble(role, text, sources=[], model='') {
+  const c   = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = `brow ${role}`;
+
+  const av = document.createElement('div');
+  av.className = `avatar ${role}`;
+  av.textContent = role === 'user' ? '👤' : '🧠';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap';
+
+  const bub = document.createElement('div');
+  bub.className = `bubble ${role}`;
+  if (role === 'user') {
+    bub.textContent = text;
+  } else {
+    bub.innerHTML = formatMarkdown(text);
+  }
+  wrap.appendChild(bub);
+
+  if (sources && sources.length > 0) {
+    const sr = document.createElement('div');
+    sr.className = 'src-row';
+    sources.forEach(s => {
+      const ch = document.createElement('span');
+      ch.className = 'src-chip';
+      ch.textContent = `📄 ${s.source} · p.${s.page}`;
+      sr.appendChild(ch);
+    });
+    wrap.appendChild(sr);
+  }
+  if (model) {
+    const mt = document.createElement('div');
+    mt.className = 'model-tag';
+    mt.textContent = `Model: ${model}`;
+    wrap.appendChild(mt);
+  }
+
+  row.appendChild(av);
+  row.appendChild(wrap);
+  c.appendChild(row);
+  c.scrollTop = c.scrollHeight;
+}
+
+let tc = 0;
+function appendTyping() {
+  const c   = document.getElementById('messages');
+  const id  = `typ-${++tc}`;
+  const row = document.createElement('div');
+  row.className = 'typing-row'; row.id = id;
+
+  const av = document.createElement('div');
+  av.className = 'avatar bot'; av.textContent = '🧠';
+
+  const tb = document.createElement('div');
+  tb.className = 'typing-bubble';
+  tb.innerHTML = '<span></span><span></span><span></span>';
+
+  row.appendChild(av); row.appendChild(tb);
+  c.appendChild(row); c.scrollTop = c.scrollHeight;
+  return id;
+}
+function removeTyping(id) { const el=document.getElementById(id); if(el)el.remove(); }
+
+/* ══════════════════════════════════════════════
+   PIPELINE VISUALIZATION
+══════════════════════════════════════════════ */
+function updatePipeline(steps, chunks, model, mode) {
+  // Live steps
+  const ls = document.getElementById('liveSteps');
+  if (steps && steps.length) {
+    ls.innerHTML = `<div class="step-list">${steps.map(s =>
+      `<div class="step-card">
+        <span class="step-icon">${s.icon}</span>
+        <div class="step-info">
+          <div class="step-name">${s.step}</div>
+          <div class="step-detail">${s.detail}</div>
+        </div>
+        <div class="step-ms">${s.ms} ms</div>
+      </div>`
+    ).join('')}</div>`;
+  }
+
+  // Model & retrieval mode labels
+  if (model) document.getElementById('node-llm-model').textContent = model;
+  if (mode) {
+    const rm = document.getElementById('node-retrieval-mode');
+    if (rm) rm.textContent = mode === 'semantic' ? 'Cosine Sim' : 'BM25 Fallback';
+  }
+
+  // Chunk inspector
+  const cg = document.getElementById('chunkGrid');
+  if (chunks && chunks.length) {
+    const scoreLabel = mode === 'semantic' ? 'Similarity' : 'Score';
+    cg.innerHTML = `<div class="chunk-grid">${chunks.map((c,i) =>
+      `<div class="chunk-card">
+        <div class="chunk-header">
+          <span class="chunk-src">📄 ${c.source} · Page ${c.page} · Chunk #${i+1}</span>
+          <span class="chunk-score">${scoreLabel}: ${c.score}</span>
+        </div>
+        <div class="chunk-text">${escHtml(c.text)}</div>
+      </div>`
+    ).join('')}</div>`;
+  } else {
+    cg.innerHTML = '<div class="chunk-empty">No chunks retrieved.</div>';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatMarkdown(str) {
+  if (!str) return '';
+  let html = str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Bold **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic *text*
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // Inline code `code`
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers ###
+  html = html.replace(/^### (.*$)/gim, '<div style="font-weight:700;font-size:0.95rem;margin:8px 0 4px;color:#fff;">$1</div>');
+  html = html.replace(/^## (.*$)/gim, '<div style="font-weight:700;font-size:1rem;margin:10px 0 4px;color:#fff;">$1</div>');
+
+  const lines = html.split('\n');
+  let inUl = false;
+  let inOl = false;
+  let result = [];
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (!inUl) {
+        if (inOl) { result.push('</ol>'); inOl = false; }
+        result.push('<ul>');
+        inUl = true;
+      }
+      result.push(`<li>${trimmed.substring(2)}</li>`);
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      if (!inOl) {
+        if (inUl) { result.push('</ul>'); inUl = false; }
+        result.push('<ol>');
+        inOl = true;
+      }
+      result.push(`<li>${trimmed.replace(/^\d+\.\s/, '')}</li>`);
+    } else {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      if (trimmed === '') {
+        result.push('<div style="height:6px"></div>');
+      } else {
+        result.push(`<div>${line}</div>`);
+      }
+    }
+  }
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('');
+}
+
+/* ══════════════════════════════════════════════
+   NODE ANIMATION
+══════════════════════════════════════════════ */
+function animateNodes(ids, cls, delay) {
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    setTimeout(() => {
+      el.classList.add(cls);
+      setTimeout(() => el.classList.remove(cls), 1800);
+    }, i * delay);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   CONTROLS
+══════════════════════════════════════════════ */
+function clearChat() {
+  document.getElementById('messages').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="ei">💬</div>
+      <h3>No conversation yet</h3>
+      <p>Upload PDF or TXT documents in the sidebar, then ask any question about their content.</p>
+    </div>`;
+}
+
+async function resetAll() {
+  if (!confirm('Reset everything? Clears the knowledge base and chat history.')) return;
+  try {
+    await fetch('/reset', { method:'POST' });
+    clearChat();
+    document.getElementById('liveSteps').innerHTML = '<div class="live-empty">Ask a question to see live pipeline timing here.</div>';
+    document.getElementById('chunkGrid').innerHTML = '<div class="chunk-empty">Retrieved chunks will appear here after your first question.</div>';
+    await fetchStatus();
+    showToast('🔄 Reset complete.', 'ok');
+  } catch(_) { showToast('❌ Reset failed.', 'err'); }
+}
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+let toastT;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show ${type}`;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.className = '', 3500);
+}
+</script>
+</body>
+</html>
