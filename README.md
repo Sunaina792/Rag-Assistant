@@ -3,7 +3,7 @@
 A complete, beginner-friendly Retrieval-Augmented Generation (RAG) chatbot with a real-time pipeline visualizer. Upload documents (PDF, TXT) and ask questions grounded strictly in your content.
 
 ---
-
+![Project Architecture](chatbot.png)
 ## 🚀 Features
 
 - **Document Processing**: Fast extraction from PDF and plain text documents with page and source tracking.
